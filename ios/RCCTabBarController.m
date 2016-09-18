@@ -2,6 +2,10 @@
 #import "RCCViewController.h"
 #import "RCTConvert.h"
 #import "RCCManager.h"
+#import "RCTEventDispatcher.h"
+
+NSString const *TAB_CALLBACK_ASSOCIATED_KEY = @"RCCTabBarController.CALLBACK_ASSOCIATED_KEY";
+NSString const *TAB_CALLBACK_ASSOCIATED_ID = @"RCCTabBarController.CALLBACK_ASSOCIATED_ID";
 
 @implementation RCCTabBarController
 
@@ -21,11 +25,35 @@
   return newImage;
 }
 
+-(BOOL)tabBarController:(UITabBarController *)tabBarController shouldSelectViewController:viewController
+{
+  RCCViewController *vc = viewController;
+  
+  NSString *callbackId = objc_getAssociatedObject(vc, &TAB_CALLBACK_ASSOCIATED_KEY);
+  
+  if (callbackId) {
+    NSString *buttonId = objc_getAssociatedObject(vc, &TAB_CALLBACK_ASSOCIATED_ID);
+    [[[RCCManager sharedInstance] getBridge].eventDispatcher sendAppEventWithName:callbackId body:@
+     {
+       @"type": @"TabBarButtonPress",
+       @"id": buttonId ? buttonId : [NSNull null]
+     }];
+    
+    if ([@"preventDefault" isEqualToString:buttonId]) {
+      return NO;
+    }
+  }
+  
+  return YES;
+}
+
 - (instancetype)initWithProps:(NSDictionary *)props children:(NSArray *)children globalProps:(NSDictionary*)globalProps bridge:(RCTBridge *)bridge
 {
   self = [super init];
   if (!self) return nil;
   
+  self.delegate = self;
+
   self.tabBar.translucent = YES; // default
   
   UIColor *buttonColor = nil;
@@ -75,14 +103,17 @@
     UIViewController *viewController = [RCCViewController controllerWithLayout:childLayout globalProps:globalProps bridge:bridge];
     if (!viewController) continue;
 
+    id tintOverride = tabItemLayout[@"props"][@"shouldTint"];
+    BOOL shouldTintIcon = tintOverride != (id)[NSNull null] ? [RCTConvert BOOL:tintOverride] : YES;
+
     // create the tab icon and title
     NSString *title = tabItemLayout[@"props"][@"title"];
     UIImage *iconImage = nil;
     id icon = tabItemLayout[@"props"][@"icon"];
     if (icon)
     {
-      iconImage = [RCTConvert UIImage:icon];
-      if (buttonColor)
+      iconImage = [[RCTConvert UIImage:icon] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+      if (buttonColor && shouldTintIcon)
       {
         iconImage = [[self image:iconImage withColor:buttonColor] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
       }
@@ -93,7 +124,24 @@
 
     viewController.tabBarItem = [[UITabBarItem alloc] initWithTitle:title image:iconImage tag:0];
     viewController.tabBarItem.accessibilityIdentifier = tabItemLayout[@"props"][@"testID"];
-    viewController.tabBarItem.selectedImage = iconImageSelected;
+    
+    if (shouldTintIcon)
+    {
+      viewController.tabBarItem.selectedImage = iconImageSelected;
+    }else{
+      viewController.tabBarItem.selectedImage = [iconImageSelected imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    }
+     
+    id position = tabItemLayout[@"props"][@"position"];
+    if (position) {
+      id xId = position[@"x"];
+      id yId = position[@"y"];
+       
+      NSInteger x = [RCTConvert NSInteger:xId];
+      NSInteger y = [RCTConvert NSInteger:yId];
+       
+      viewController.tabBarItem.imageInsets = UIEdgeInsetsMake(y, x, -y, -x);
+    }
     
     if (buttonColor)
     {
@@ -119,6 +167,17 @@
     }
 
     [viewControllers addObject:viewController];
+  }
+
+  NSArray *buttons = tabItemLayout[@"props"][@"buttons"];
+  if (buttons) {
+    NSDictionary *button = buttons[0];
+    objc_setAssociatedObject(viewController, &TAB_CALLBACK_ASSOCIATED_KEY, button[@"onPress"], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    NSString *buttonId = button[@"id"];
+    if (buttonId)
+    {
+      objc_setAssociatedObject(viewController, &TAB_CALLBACK_ASSOCIATED_ID, buttonId, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
   }
 
   // replace the tabs
