@@ -3,6 +3,7 @@
 #import "RCTConvert.h"
 #import "RCCManager.h"
 #import "RCTEventDispatcher.h"
+#import <objc/runtime.h>
 
 NSString const *TAB_CALLBACK_ASSOCIATED_KEY = @"RCCTabBarController.CALLBACK_ASSOCIATED_KEY";
 NSString const *TAB_CALLBACK_ASSOCIATED_ID = @"RCCTabBarController.CALLBACK_ASSOCIATED_ID";
@@ -167,16 +168,16 @@ NSString const *TAB_CALLBACK_ASSOCIATED_ID = @"RCCTabBarController.CALLBACK_ASSO
     }
 
     [viewControllers addObject:viewController];
-  }
 
-  NSArray *buttons = tabItemLayout[@"props"][@"buttons"];
-  if (buttons) {
-    NSDictionary *button = buttons[0];
-    objc_setAssociatedObject(viewController, &TAB_CALLBACK_ASSOCIATED_KEY, button[@"onPress"], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    NSString *buttonId = button[@"id"];
-    if (buttonId)
-    {
-      objc_setAssociatedObject(viewController, &TAB_CALLBACK_ASSOCIATED_ID, buttonId, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    NSArray *buttons = tabItemLayout[@"props"][@"buttons"];
+    if (buttons) {
+      NSDictionary *button = buttons[0];
+      objc_setAssociatedObject(viewController, &TAB_CALLBACK_ASSOCIATED_KEY, button[@"onPress"], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+      NSString *buttonId = button[@"id"];
+      if (buttonId)
+      {
+        objc_setAssociatedObject(viewController, &TAB_CALLBACK_ASSOCIATED_ID, buttonId, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+      }
     }
   }
 
