@@ -466,25 +466,6 @@ const NSInteger TRANSPARENT_NAVBAR_TAG = 78264803;
   return gradientImage;
 }
 
--(UIImage *)getGradientImage:(CGRect)bounds{
-    CAGradientLayer *gradientLayer = [CAGradientLayer layer];
-
-    gradientLayer.frame = bounds;
-    gradientLayer.colors = @[
-        (__bridge id)[UIColor colorWithRed:127/255.0 green:66/255.0 blue:142/255.0 alpha:1].CGColor,
-        (__bridge id)[UIColor colorWithRed:223/255.0 green:45/255.0 blue:111/255.0 alpha:1].CGColor
-    ];
-    gradientLayer.startPoint = CGPointMake(0.0, 0.25);
-    gradientLayer.endPoint = CGPointMake(1.0, 0.75);
-
-    UIGraphicsBeginImageContext(gradientLayer.bounds.size);
-    [gradientLayer renderInContext:UIGraphicsGetCurrentContext()];
-    UIImage *gradientImage = UIGraphicsGetImageFromCurrentImageContext();
-    UIGraphicsEndImageContext();
-
-    return gradientImage;
-}
-
 -(void)setStyleOnDisappear
 {
     self.navBarHairlineImageView.hidden = NO;
