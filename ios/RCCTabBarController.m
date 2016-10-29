@@ -184,6 +184,11 @@ NSString const *TAB_CALLBACK_ASSOCIATED_ID = @"RCCTabBarController.CALLBACK_ASSO
   // replace the tabs
   self.viewControllers = viewControllers;
 
+  int activeTabIndex = (int)[(NSNumber *)props[@"activeTabIndex"] integerValue];
+  if (activeTabIndex < [viewControllers count]) {
+    [self setSelectedViewController:[viewControllers objectAtIndex:activeTabIndex]];
+  }
+
   return self;
 }
 
