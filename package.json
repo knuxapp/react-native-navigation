@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "lodash": "^4.13.0",
-    "react-native-controllers": "^2.0.0",
+    "react-native-controllers": "github:knuxapp/react-native-controllers#development",
     "redux": "^3.6.0"
   },
   "optionalDependencies": {
