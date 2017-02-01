@@ -66,7 +66,9 @@ function startTabBasedApp(params) {
       return (
         <TabBarControllerIOS
           id={controllerID + '_tabs'}
-          style={params.tabsStyle}>
+          style={params.tabsStyle}
+          activeTabIndex={params.activeTabIndex || 0}
+          >
           {
             params.tabs.map(function(tab, index) {
               return (
@@ -515,7 +517,7 @@ function showInAppNotification(params) {
     navigatorEventID,
     navigatorID
   };
-  
+
   savePassProps(params);
 
   let args = {

@@ -12,6 +12,7 @@
 
 @end
 
+
 @implementation RCCTabBarController
 
 - (BOOL)tabBarController:(UITabBarController *)tabBarController shouldSelectViewController:(UIViewController *)viewController {
@@ -105,7 +106,7 @@
     id icon = tabItemLayout[@"props"][@"icon"];
     if (icon)
     {
-      iconImage = [RCTConvert UIImage:icon];
+      iconImage = [[RCTConvert UIImage:icon] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
       if (buttonColor)
       {
         iconImage = [[self image:iconImage withColor:buttonColor] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
@@ -147,6 +148,11 @@
 
   // replace the tabs
   self.viewControllers = viewControllers;
+  
+  int activeTabIndex = (int)[(NSNumber *)props[@"activeTabIndex"] integerValue];
+  if (activeTabIndex < [viewControllers count]) {
+    [self setSelectedViewController:[viewControllers objectAtIndex:activeTabIndex]];
+  }
 
   return self;
 }
