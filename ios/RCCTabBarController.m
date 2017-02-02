@@ -3,6 +3,14 @@
 #import "RCTConvert.h"
 #import "RCCManager.h"
 #import "RCTUIManager.h"
+#import <objc/runtime.h>
+
+
+NSString const *TAB_CALLBACK_ASSOCIATED_KEY = @"RCCTabBarController.CALLBACK_ASSOCIATED_KEY";
+NSString const *TAB_CALLBACK_ASSOCIATED_ID = @"RCCTabBarController.CALLBACK_ASSOCIATED_ID";
+
+id objc_getAssociatedObject(id object, const void *key);
+void objc_setAssociatedObject(id object, const void *key, id value, objc_AssociationPolicy policy);
 
 @interface RCTUIManager ()
 
@@ -16,13 +24,30 @@
 @implementation RCCTabBarController
 
 - (BOOL)tabBarController:(UITabBarController *)tabBarController shouldSelectViewController:(UIViewController *)viewController {
+  RCCViewController *vc = viewController;
   id queue = [[RCCManager sharedInstance].getBridge uiManager].methodQueue;
   dispatch_async(queue, ^{
     [[[RCCManager sharedInstance].getBridge uiManager] configureNextLayoutAnimation:nil withCallback:^(NSArray* arr){} errorCallback:^(NSArray* arr){}];
   });
-  
+
   if (tabBarController.selectedIndex != [tabBarController.viewControllers indexOfObject:viewController]) {
     [RCCTabBarController sendScreenTabChangedEvent:viewController];
+  }
+
+
+  NSString *callbackId = objc_getAssociatedObject(vc, &TAB_CALLBACK_ASSOCIATED_KEY);
+
+  if (callbackId) {
+    NSString *buttonId = objc_getAssociatedObject(vc, &TAB_CALLBACK_ASSOCIATED_ID);
+    [[[RCCManager sharedInstance] getBridge].eventDispatcher sendAppEventWithName:callbackId body:@
+     {
+       @"type": @"TabBarButtonPress",
+       @"id": buttonId ? buttonId : [NSNull null]
+     }];
+
+    if ([@"preventDefault" isEqualToString:buttonId]) {
+      return NO;
+    }
   }
 
   return YES;
@@ -101,13 +126,17 @@
     if (!viewController) continue;
 
     // create the tab icon and title
+
+    id tintOverride = tabItemLayout[@"props"][@"shouldTint"];
+    BOOL shouldTintIcon = tintOverride != (id)[NSNull null] ? [RCTConvert BOOL:tintOverride] : YES;
+
     NSString *title = tabItemLayout[@"props"][@"title"];
     UIImage *iconImage = nil;
     id icon = tabItemLayout[@"props"][@"icon"];
     if (icon)
     {
       iconImage = [[RCTConvert UIImage:icon] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
-      if (buttonColor)
+      if (buttonColor && shouldTintIcon)
       {
         iconImage = [[self image:iconImage withColor:buttonColor] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
       }
@@ -118,7 +147,23 @@
 
     viewController.tabBarItem = [[UITabBarItem alloc] initWithTitle:title image:iconImage tag:0];
     viewController.tabBarItem.accessibilityIdentifier = tabItemLayout[@"props"][@"testID"];
-    viewController.tabBarItem.selectedImage = iconImageSelected;
+
+    if (shouldTintIcon) {
+      viewController.tabBarItem.selectedImage = iconImageSelected;
+    } else {
+      viewController.tabBarItem.selectedImage = [iconImageSelected imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+    }
+
+    id position = tabItemLayout[@"props"][@"position"];
+    if (position) {
+      id xId = position[@"x"];
+      id yId = position[@"y"];
+
+      NSInteger x = [RCTConvert NSInteger:xId];
+      NSInteger y = [RCTConvert NSInteger:yId];
+
+      viewController.tabBarItem.imageInsets = UIEdgeInsetsMake(y, x, -y, -x);
+    }
 
     if (buttonColor)
     {
@@ -143,16 +188,28 @@
       viewController.tabBarItem.badgeValue = [NSString stringWithFormat:@"%@", badge];
     }
 
+    NSArray *buttons = tabItemLayout[@"props"][@"buttons"];
+    if (buttons != nil) {
+      NSDictionary *button = buttons[0];
+      objc_setAssociatedObject(viewController, &TAB_CALLBACK_ASSOCIATED_KEY, button[@"onPress"], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+      NSString *buttonId = button[@"id"];
+      if (buttonId)
+      {
+        objc_setAssociatedObject(viewController, &TAB_CALLBACK_ASSOCIATED_ID, buttonId, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+      }
+    }
+
     [viewControllers addObject:viewController];
   }
 
   // replace the tabs
   self.viewControllers = viewControllers;
-  
+
   int activeTabIndex = (int)[(NSNumber *)props[@"activeTabIndex"] integerValue];
   if (activeTabIndex < [viewControllers count]) {
     [self setSelectedViewController:[viewControllers objectAtIndex:activeTabIndex]];
   }
+
 
   return self;
 }
@@ -250,11 +307,11 @@
 +(void)sendScreenTabChangedEvent:(UIViewController*)viewController {
   if ([viewController.view isKindOfClass:[RCTRootView class]]){
     RCTRootView *rootView = (RCTRootView *)viewController.view;
-    
+
     if (rootView.appProperties && rootView.appProperties[@"navigatorEventID"]) {
       NSString *navigatorID = rootView.appProperties[@"navigatorID"];
       NSString *screenInstanceID = rootView.appProperties[@"screenInstanceID"];
-      
+
       [[[RCCManager sharedInstance] getBridge].eventDispatcher sendAppEventWithName:rootView.appProperties[@"navigatorEventID"] body:@
        {
          @"id": @"bottomTabSelected",
@@ -263,7 +320,7 @@
        }];
     }
   }
-  
+
   if ([viewController isKindOfClass:[UINavigationController class]]) {
     UINavigationController *navigationController = (UINavigationController*)viewController;
     UIViewController *topViewController = [navigationController topViewController];
