@@ -202,14 +202,26 @@ const NSInteger TRANSPARENT_NAVBAR_TAG = 78264803;
     }
 
     NSString *screenBackgroundImageName = self.navigatorStyle[@"screenBackgroundImageNamed"];
-    if (screenBackgroundImage)
+    if (screenBackgroundImageName)
     {
-      self.view.backgroundColor = [UIColor
-        colorWithPatternImage: [UIImage
-            imageWithContentsOfFile:[[[NSBundle mainBundle] resourcePath]
-                stringByAppendingPathComponent:screenBackgroundImageName]]];
-    }
+      UIImage *image = [UIImage imageNamed:screenBackgroundImageName];
+      CGSize newSize = [[[UIApplication sharedApplication] keyWindow] bounds].size;
 
+      // Create a graphics image context
+      UIGraphicsBeginImageContext(newSize);
+
+      // draw in new context, with the new size
+      [image drawInRect:CGRectMake(0, 0, newSize.width, newSize.height)];
+
+      // Get the new image from the context
+      UIImage* newImage = UIGraphicsGetImageFromCurrentImageContext();
+
+      // End the context
+      UIGraphicsEndImageContext();
+
+      UIColor *color = [UIColor colorWithPatternImage:newImage];
+      self.view.backgroundColor = color;
+    }
 
     // Draw gradient
     CGRect statusBarFrame = [[UIApplication sharedApplication] statusBarFrame];
